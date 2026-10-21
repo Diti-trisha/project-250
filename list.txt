@@ -1,0 +1,17 @@
+-> Login/Register
+    -> jwt
+    -> database
+
+-> Report Problem
+-> Photo + Location
+-> Problem Feed
+-> Search/Filter
+-> Upvote
+-> My Reports
+-> Status Tracking
+-> Admin Dashboard
+-> Priority
+-> Resolution Proof
+-> Notifications
+
+Anonymous Report + Comments + Reopen optional
