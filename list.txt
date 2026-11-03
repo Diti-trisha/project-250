@@ -1,17 +1,19 @@
--> Login/Register
-    -> jwt
-    -> database
+to do:
+    -> Login/Register
+        -> jwt
+        -> database
 
--> Report Problem
--> Photo + Location
--> Problem Feed
--> Search/Filter
--> Upvote
--> My Reports
--> Status Tracking
--> Admin Dashboard
--> Priority
--> Resolution Proof
--> Notifications
+    -> Report Problem
+    -> academic calender
+    -> routine
+    -> canteen browser
+    -> canteen subscription
+    -> classroom availablity
+    -> attendence
+    -> online platform
+    -> My Profile
+    -> Admin Dashboard
+    -> Notifications
 
-Anonymous Report + Comments + Reopen optional
+done:
+    
