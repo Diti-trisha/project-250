@@ -1,8 +1,8 @@
 package main
 
 import (
-	"context"
 	"log"
+	"net/http"
 )
 
 func main() {
@@ -19,25 +19,15 @@ func main() {
 
 	// initialize user repo
 	userRepo := NewUserRepository(DB)
-	ctx := context.Background()
+	authHandler := NewAuthHandler(userRepo)
 
-	// test: create user
-	newUser := &User{
-		RegNo:    2023331027,
-		FullName: "DITI BHATTACHARJEE",
-		Email:    "2023331027@student.sust.edu",
-		Password: "abcde",
-		Dept:     "CSE",
-		PhoneNo:  "01716842832",
+	// endpoints
+	http.HandleFunc("/api/register", authHandler.Register)
+	http.HandleFunc("/api/login", authHandler.Login)
+	http.HandleFunc("/api/profile", JWTMiddleware(authHandler.ProtectedProfile))
+
+	log.Println("Server running on http://localhost:8080...")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
-
-	_ = userRepo.CreateUser(ctx, newUser)
-
-	// test: search user
-	fetchedUser, err := userRepo.GetUserByRegNo(ctx, 2023331027)
-	if err != nil {
-		log.Fatalf("Error fetching user: %v", err)
-	}
-
-	log.Printf("Found User: %+v\n", fetchedUser)
 }

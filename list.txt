@@ -1,9 +1,6 @@
 to do:
-    -> Login/Register
-        -> jwt
-        -> database
-
-    -> Report Problem
+    -> report problem
+        -> anonymous reporting
     -> academic calender
     -> routine
     -> canteen browser
@@ -15,5 +12,11 @@ to do:
     -> Admin Dashboard
     -> Notifications
 
+doing:
+    -> login/register
+        -> jwt
+        -> database
+
 done:
-    
+    -> database connection
+
