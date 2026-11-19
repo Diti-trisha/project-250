@@ -16,6 +16,7 @@ type User struct {
 	Password string `json:"password"`
 	Dept     string `json:"dept"`
 	PhoneNo  string `json:"phone_no"`
+	Role     string `json:"role"`
 }
 
 type UserRepository struct {
@@ -28,9 +29,13 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 
 // insert a new user into the database
 func (r *UserRepository) CreateUser(ctx context.Context, user *User) error {
+	if user.Role == "" {
+		user.Role = "student"
+	}
+
 	query := `
-		INSERT INTO users (reg_no, full_name, email, password, dept, phone_no)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (reg_no, full_name, email, password, dept, phone_no, role)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := r.db.Exec(ctx, query,
 		user.RegNo,
@@ -39,6 +44,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *User) error {
 		user.Password,
 		user.Dept,
 		user.PhoneNo,
+		user.Role,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to insert user: %v", err)
@@ -49,7 +55,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *User) error {
 // fetch a user by their registration number
 func (r *UserRepository) GetUserByRegNo(ctx context.Context, regNo int) (*User, error) {
 	query := `
-		SELECT reg_no, full_name, email, password, dept, phone_no
+		SELECT reg_no, full_name, email, password, dept, phone_no, role
 		FROM users WHERE reg_no = $1
 	`
 	var user User
@@ -60,6 +66,7 @@ func (r *UserRepository) GetUserByRegNo(ctx context.Context, regNo int) (*User, 
 		&user.Password,
 		&user.Dept,
 		&user.PhoneNo,
+		&user.Role,
 	)
 
 	if err != nil {

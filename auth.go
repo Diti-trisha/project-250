@@ -20,7 +20,8 @@ func NewAuthHandler(repo *UserRepository) *AuthHandler {
 }
 
 type Claims struct {
-	RegNo int `json:"reg_no"`
+	RegNo int    `json:"reg_no"`
+	Role  string `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -36,6 +37,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request payload.", http.StatusBadRequest)
 		return
 	}
+
+	// force default student role
+	user.Role = "student"
 
 	// hash password securely
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -86,10 +90,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	role := user.Role
+	if role == "" {
+		role = "student"
+	}
+
 	// generate jwt token
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
 		RegNo: user.RegNo,
+		Role:  role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
@@ -108,7 +118,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 // handle an authenticated route request
 func (h *AuthHandler) ProtectedProfile(w http.ResponseWriter, r *http.Request) {
-	regNo := r.Context().Value("reg_no").(int)
+	regNo, ok := r.Context().Value("reg_no").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	ctx := context.Background()
 	user, err := h.repo.GetUserByRegNo(ctx, regNo)

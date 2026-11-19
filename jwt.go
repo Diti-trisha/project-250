@@ -35,8 +35,14 @@ func JWTMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// inject reg_no into request context
+		role := claims.Role
+		if role == "" {
+			role = "student"
+		}
+
+		// inject reg_no and role into request context
 		ctx := context.WithValue(r.Context(), "reg_no", claims.RegNo)
+		ctx = context.WithValue(ctx, "role", role)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }

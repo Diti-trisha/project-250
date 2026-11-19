@@ -17,14 +17,27 @@ func main() {
 		log.Fatalf("Migration error: %v", err)
 	}
 
-	// initialize user repo
+	// initialize repos and handlers
 	userRepo := NewUserRepository(DB)
 	authHandler := NewAuthHandler(userRepo)
+	calendarHandler := NewCalendarHandler(DB)
 
-	// endpoints
+	// frontend pages
+	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "login.html")
+	})
+	http.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "register.html")
+	})
+	http.HandleFunc("/calendar", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "calendar.html")
+	})
+
+	// api endpoints
 	http.HandleFunc("/api/register", authHandler.Register)
 	http.HandleFunc("/api/login", authHandler.Login)
-	http.HandleFunc("/api/profile", JWTMiddleware(authHandler.ProtectedProfile))
+	http.HandleFunc("/api/calendar", JWTMiddleware(calendarHandler.GetMonth))
+	http.HandleFunc("/api/calendar/day", JWTMiddleware(calendarHandler.SetDay))
 
 	log.Println("Server running on http://localhost:8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {

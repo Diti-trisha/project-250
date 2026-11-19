@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academic Calendar</title>
+  <style>
+    body { font-family: sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; color: #111; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .header-nav { display: flex; gap: 0.4rem; }
+    .header button { padding: 0.4rem 0.8rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+    .legend { display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.9rem; }
+    .swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid #999; margin-right: 0.3rem; }
+    .swatch.regular { background: #fff; }
+    .swatch.holiday { background: #f8d7da; border-color: red; }
+    .swatch.event { background: #d4edda; border-color: green; }
+    .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .weekday { text-align: center; font-weight: bold; font-size: 0.85rem; padding: 0.3rem 0; }
+    .day-box { min-height: 70px; padding: 0.4rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; text-align: left; }
+    .day-box.empty { background: none; border-color: transparent; cursor: default; }
+    .day-box.holiday { background: #f8d7da; border-color: red; }
+    .day-box.event { background: #d4edda; border-color: green; }
+    .day-box.selected { outline: 2px solid blue; }
+    .day-preview { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .panel { margin-top: 1rem; padding: 1rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    select, input[type="text"] { padding: 0.45rem; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="text"] { flex: 1; min-width: 200px; }
+    .save-btn { padding: 0.45rem 0.8rem; background: blue; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-nav">
+      <button id="prevMonthBtn" type="button">Previous</button>
+      <button id="nextMonthBtn" type="button">Next</button>
+    </div>
+    <h2 id="monthTitle"></h2>
+    <button id="logoutBtn" class="logout-btn" type="button">Log Out</button>
+  </div>
+
+  <div class="legend">
+    <span><i class="swatch regular"></i>Regular</span>
+    <span><i class="swatch holiday"></i>Holiday</span>
+    <span><i class="swatch event"></i>Event</span>
+  </div>
+
+  <div class="grid" id="calendarGrid"></div>
+
+  <div class="panel">
+    <strong>Selected Day:</strong> <span id="selectedDateLabel">Click a day</span>
+    <p id="selectedInfoText" style="margin: 0.4rem 0 0;"></p>
+  </div>
+
+  <div class="panel" id="adminPanel" style="display: none;">
+    <strong>Admin: Set Day Status</strong>
+    <div class="controls">
+      <select id="dayTypeSelect">
+        <option value="regular">Regular</option>
+        <option value="holiday">Holiday</option>
+        <option value="event">Event</option>
+      </select>
+      <input type="text" id="dayDescInput" placeholder="Description..." />
+      <button class="save-btn" id="saveDayBtn" type="button">Save</button>
+    </div>
+    <p id="adminStatusMsg" style="margin: 0.5rem 0 0; font-size: 0.9rem;"></p>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token") || "";
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    });
+
+    function parseJwtRole(jwt) {
+      try {
+        const parts = jwt.split(".");
+        if (parts.length !== 3) return "";
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        return (payload.role || "").toLowerCase();
+      } catch {
+        return "";
+      }
+    }
+
+    const isAdmin = parseJwtRole(token) === "admin";
+    if (isAdmin) {
+      document.getElementById("adminPanel").style.display = "block";
+    }
+
+    const now = new Date();
+    let currentYear = now.getFullYear();
+    let currentMonth = now.getMonth() + 1;
+    let monthEntries = {};
+    let selectedDateStr = null;
+
+    const monthTitleEl = document.getElementById("monthTitle");
+    const gridEl = document.getElementById("calendarGrid");
+    const selectedDateLabelEl = document.getElementById("selectedDateLabel");
+    const selectedInfoTextEl = document.getElementById("selectedInfoText");
+    const dayTypeSelectEl = document.getElementById("dayTypeSelect");
+    const dayDescInputEl = document.getElementById("dayDescInput");
+    const adminStatusMsgEl = document.getElementById("adminStatusMsg");
+
+    function formatDateStr(y, m, d) {
+      return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
+    }
+
+    async function loadMonth(year, month) {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(`/api/calendar?year=${year}&month=${month}`, { headers });
+      monthEntries = {};
+      if (res.ok) {
+        const data = await res.json();
+        for (const item of (data.days || [])) {
+          monthEntries[item.date] = item;
+        }
+      }
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const firstDay = new Date(currentYear, currentMonth - 1, 1);
+      const lastDay = new Date(currentYear, currentMonth, 0);
+      const daysInMonth = lastDay.getDate();
+      const startWeekday = firstDay.getDay();
+
+      monthTitleEl.textContent = firstDay.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+      gridEl.innerHTML = "";
+
+      for (const wd of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
+        const cell = document.createElement("div");
+        cell.className = "weekday";
+        cell.textContent = wd;
+        gridEl.appendChild(cell);
+      }
+
+      for (let i = 0; i < startWeekday; i++) {
+        const blank = document.createElement("div");
+        blank.className = "day-box empty";
+        gridEl.appendChild(blank);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = formatDateStr(currentYear, currentMonth, day);
+        const entry = monthEntries[dateStr] || { date: dateStr, type: "regular", day_description: "" };
+
+        const box = document.createElement("button");
+        box.type = "button";
+        box.className = `day-box ${entry.type}`;
+        if (dateStr === selectedDateStr) box.classList.add("selected");
+
+        const numSpan = document.createElement("span");
+        numSpan.textContent = day;
+
+        const previewSpan = document.createElement("span");
+        previewSpan.className = "day-preview";
+        previewSpan.textContent = entry.day_description || "";
+
+        box.appendChild(numSpan);
+        box.appendChild(previewSpan);
+        box.addEventListener("click", () => selectDay(dateStr));
+        gridEl.appendChild(box);
+      }
+    }
+
+    function selectDay(dateStr) {
+      selectedDateStr = dateStr;
+      const entry = monthEntries[dateStr] || { date: dateStr, type: "regular", day_description: "" };
+
+      selectedDateLabelEl.textContent = dateStr;
+      if (entry.type === "holiday") {
+        selectedInfoTextEl.textContent = `Holiday: ${entry.day_description || "Holiday"}`;
+      } else if (entry.type === "event") {
+        selectedInfoTextEl.textContent = `Event: ${entry.day_description || "Event"}`;
+      } else {
+        selectedInfoTextEl.textContent = "Regular classes.";
+      }
+
+      if (isAdmin) {
+        dayTypeSelectEl.value = entry.type;
+        dayDescInputEl.value = entry.day_description || "";
+        adminStatusMsgEl.textContent = "";
+      }
+
+      renderCalendar();
+    }
+
+    document.getElementById("prevMonthBtn").addEventListener("click", () => {
+      currentMonth -= 1;
+      if (currentMonth < 1) { currentMonth = 12; currentYear -= 1; }
+      loadMonth(currentYear, currentMonth);
+    });
+
+    document.getElementById("nextMonthBtn").addEventListener("click", () => {
+      currentMonth += 1;
+      if (currentMonth > 12) { currentMonth = 1; currentYear += 1; }
+      loadMonth(currentYear, currentMonth);
+    });
+
+    if (isAdmin) {
+      document.getElementById("saveDayBtn").addEventListener("click", async () => {
+        if (!selectedDateStr) {
+          adminStatusMsgEl.textContent = "Click a day first.";
+          return;
+        }
+        const res = await fetch("/api/calendar/day", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            date: selectedDateStr,
+            type: dayTypeSelectEl.value,
+            day_description: dayDescInputEl.value
+          })
+        });
+
+        if (!res.ok) {
+          adminStatusMsgEl.textContent = await res.text();
+          return;
+        }
+
+        const data = await res.json();
+        monthEntries[data.date] = data;
+        adminStatusMsgEl.textContent = "Saved.";
+        selectDay(data.date);
+      });
+    }
+
+    loadMonth(currentYear, currentMonth);
+  </script>
+</body>
+</html>

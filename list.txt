@@ -1,7 +1,6 @@
 to do:
     -> report problem
         -> anonymous reporting
-    -> academic calender
     -> routine
     -> canteen browser
     -> canteen subscription
@@ -19,4 +18,18 @@ doing:
 
 done:
     -> database connection
+    -> academic calender
 
+
+for calender:
+my-school-project/
+├── main.go
+├── schema.sql
+├── user.go
+├── calendar.go (or calendar handler/repo)
+└── static/
+    └── calendar.html
+
+
+to clere table in db: 
+    DROP TABLE IF EXISTS users, calendar_days CASCADE;
