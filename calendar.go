@@ -12,6 +12,8 @@ import (
 
 const dateLayout = "02-01-2006"
 
+var utcPlus6 = time.FixedZone("UTC+6", 6*3600)
+
 type DayType string
 
 const (
@@ -48,7 +50,6 @@ func (h *CalendarHandler) GetMonth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
-	utcPlus6 := time.FixedZone("UTC+6", 6*60*60)
 	year, err := parseIntQuery(r.URL.Query().Get("year"), now.In(utcPlus6).Year())
 	if err != nil || year < 1970 || year > 2100 {
 		http.Error(w, "Invalid year", http.StatusBadRequest)

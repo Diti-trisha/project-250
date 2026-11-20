@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance Sheet</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; color: #111; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .header-actions { display: flex; gap: 0.4rem; }
+    .header button { padding: 0.4rem 0.8rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
+    .panel { width: 100%; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; }
+    table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid #ccc; padding: 0.4rem 0.5rem; text-align: center; white-space: nowrap; }
+    th { background: #fafafa; line-height: 1.25; }
+    th.reg-col, td.reg-col { text-align: left; }
+    th.name-col, td.name-col { text-align: left; }
+    th.summary-col, td.summary-col { font-weight: bold; background: #fafafa; }
+    th.today-col { background: #e8f0fe; border-bottom: 2px solid blue; }
+    td.today-col { background: #f4f8ff; }
+    td.past-col { background: #f2f2f2; }
+    input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; vertical-align: middle; }
+    input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.55; accent-color: #666; }
+    .status { margin-top: 0.6rem; font-size: 0.85rem; min-height: 1.2em; }
+    .denied { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; color: #900; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2 style="margin: 0;">Attendance Sheet</h2>
+    <div class="header-actions">
+      <button id="calendarBtn" type="button" onclick="window.location.href='/calendar'">Calendar</button>
+      <button id="logoutBtn" class="logout-btn" type="button">Log Out</button>
+    </div>
+  </div>
+
+  <div id="deniedBox" class="denied" style="display: none;">
+    Access denied. Only teachers can view or update attendance.
+  </div>
+
+  <div id="sheetPanel" class="panel" style="display: none;">
+    <table id="attendanceTable"></table>
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token") || "";
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    });
+
+    function parseJwtRole(jwt) {
+      try {
+        const parts = jwt.split(".");
+        if (parts.length !== 3) return "";
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+        return (payload.role || "").toLowerCase();
+      } catch {
+        return "";
+      }
+    }
+
+    function getTodayDDMMYYYYInUTCPlus6() {
+      const shifted = new Date(Date.now() + 6 * 3600 * 1000);
+      const dd = String(shifted.getUTCDate()).padStart(2, "0");
+      const mm = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+      const yyyy = shifted.getUTCFullYear();
+      return `${dd}-${mm}-${yyyy}`;
+    }
+
+    function formatDDMM(ddmmyyyy) {
+      const parts = ddmmyyyy.split("-");
+      return parts.length >= 2 ? `${parts[0]}-${parts[1]}` : ddmmyyyy;
+    }
+
+    const isTeacher = parseJwtRole(token) === "teacher";
+    const deniedBoxEl = document.getElementById("deniedBox");
+    const sheetPanelEl = document.getElementById("sheetPanel");
+    const tableEl = document.getElementById("attendanceTable");
+    const statusMsgEl = document.getElementById("statusMsg");
+
+    if (!token || !isTeacher) {
+      deniedBoxEl.style.display = "block";
+    } else {
+      sheetPanelEl.style.display = "block";
+      loadAttendanceSheet();
+    }
+
+    async function loadAttendanceSheet() {
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch("/api/attendance", { headers });
+      if (!res.ok) {
+        statusMsgEl.textContent = await res.text();
+        return;
+      }
+
+      const data = await res.json();
+      renderSheet(data.dates || [], data.students || [], data.records || []);
+    }
+
+    function renderSheet(dates, students, records) {
+      const todayStr = getTodayDDMMYYYYInUTCPlus6();
+      const visibleDates = dates.slice(-6);
+      const presentSet = new Set();
+
+      for (const rec of records) {
+        if (rec.present) {
+          presentSet.add(`${rec.reg_no}|${rec.date}`);
+        }
+      }
+
+      tableEl.innerHTML = "";
+
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+
+      const regTh = document.createElement("th");
+      regTh.className = "reg-col";
+      regTh.textContent = "Reg No";
+      headRow.appendChild(regTh);
+
+      const nameTh = document.createElement("th");
+      nameTh.className = "name-col";
+      nameTh.textContent = "Student";
+      headRow.appendChild(nameTh);
+
+      for (const d of visibleDates) {
+        const isToday = d === todayStr;
+        const shortDate = formatDDMM(d);
+        const th = document.createElement("th");
+        if (isToday) {
+          th.classList.add("today-col");
+          th.innerHTML = `${shortDate}<br/><span style="font-size:0.75rem;font-weight:normal;">(Today)</span>`;
+        } else {
+          th.textContent = shortDate;
+        }
+        headRow.appendChild(th);
+      }
+
+      const totalTh = document.createElement("th");
+      totalTh.className = "summary-col";
+      totalTh.textContent = "Present / Total";
+      headRow.appendChild(totalTh);
+
+      thead.appendChild(headRow);
+      tableEl.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      const totalDays = visibleDates.length;
+
+      for (const student of students) {
+        const tr = document.createElement("tr");
+
+        const regTd = document.createElement("td");
+        regTd.className = "reg-col";
+        regTd.textContent = student.reg_no;
+        tr.appendChild(regTd);
+
+        const nameTd = document.createElement("td");
+        nameTd.className = "name-col";
+        nameTd.textContent = student.full_name;
+        tr.appendChild(nameTd);
+
+        let presentCount = 0;
+        const rowCheckboxes = [];
+
+        for (const d of visibleDates) {
+          const isToday = d === todayStr;
+          const isChecked = presentSet.has(`${student.reg_no}|${d}`);
+          if (isChecked) presentCount += 1;
+
+          const td = document.createElement("td");
+          td.className = isToday ? "today-col" : "past-col";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = isChecked;
+          cb.disabled = !isToday;
+
+          if (isToday) {
+            cb.addEventListener("change", async () => {
+              cb.disabled = true;
+              statusMsgEl.textContent = "Saving...";
+
+              const res = await fetch("/api/attendance", {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  reg_no: student.reg_no,
+                  date: d,
+                  present: cb.checked
+                })
+              });
+
+              cb.disabled = false;
+
+              if (!res.ok) {
+                cb.checked = !cb.checked;
+                statusMsgEl.textContent = await res.text();
+                return;
+              }
+
+              const saved = await res.json();
+              updateSummary();
+              statusMsgEl.textContent = `Saved ${student.full_name} (${saved.date}): ${saved.present ? "Present" : "Absent"}`;
+            });
+          }
+
+          rowCheckboxes.push(cb);
+          td.appendChild(cb);
+          tr.appendChild(td);
+        }
+
+        const summaryTd = document.createElement("td");
+        summaryTd.className = "summary-col";
+
+        const updateSummary = () => {
+          const count = rowCheckboxes.reduce((acc, box) => acc + (box.checked ? 1 : 0), 0);
+          summaryTd.textContent = `${count} / ${totalDays}`;
+        };
+
+        summaryTd.textContent = `${presentCount} / ${totalDays}`;
+        tr.appendChild(summaryTd);
+
+        tbody.appendChild(tr);
+      }
+
+      tableEl.appendChild(tbody);
+    }
+  </script>
+</body>
+</html>

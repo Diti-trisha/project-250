@@ -3,67 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Academic Calendar</title>
+  <title>Attendance Sheet</title>
   <style>
-    body { font-family: sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; color: #111; }
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; color: #111; }
     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .header-nav { display: flex; gap: 0.4rem; }
+    .header-actions { display: flex; gap: 0.4rem; }
     .header button { padding: 0.4rem 0.8rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; }
-    .legend { display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.9rem; }
-    .swatch { display: inline-block; width: 12px; height: 12px; border: 1px solid #999; margin-right: 0.3rem; }
-    .swatch.regular { background: #fff; }
-    .swatch.holiday { background: #f8d7da; border-color: red; }
-    .swatch.event { background: #d4edda; border-color: green; }
-    .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-    .weekday { text-align: center; font-weight: bold; font-size: 0.85rem; padding: 0.3rem 0; }
-    .day-box { min-height: 70px; padding: 0.4rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; text-align: left; }
-    .day-box.empty { background: none; border-color: transparent; cursor: default; }
-    .day-box.holiday { background: #f8d7da; border-color: red; }
-    .day-box.event { background: #d4edda; border-color: green; }
-    .day-box.selected { outline: 2px solid blue; }
-    .day-preview { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .panel { margin-top: 1rem; padding: 1rem; background: #fff; border: 1px solid #ccc; border-radius: 4px; }
-    .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
-    select, input[type="text"] { padding: 0.45rem; border: 1px solid #ccc; border-radius: 4px; }
-    input[type="text"] { flex: 1; min-width: 200px; }
-    .save-btn { padding: 0.45rem 0.8rem; background: blue; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    .panel { width: 100%; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; }
+    table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid #ccc; padding: 0.4rem 0.5rem; text-align: center; white-space: nowrap; }
+    th { background: #fafafa; line-height: 1.25; }
+    th.reg-col, td.reg-col { text-align: left; }
+    th.name-col, td.name-col { text-align: left; }
+    th.summary-col, td.summary-col { font-weight: bold; background: #fafafa; }
+    th.today-col { background: #e8f0fe; border-bottom: 2px solid blue; }
+    td.today-col { background: #f4f8ff; }
+    td.past-col { background: #f2f2f2; }
+    input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; vertical-align: middle; }
+    input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.55; accent-color: #666; }
+    .status { margin-top: 0.6rem; font-size: 0.85rem; min-height: 1.2em; }
+    .denied { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; color: #900; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="header-nav">
-      <button id="prevMonthBtn" type="button">Previous</button>
-      <button id="nextMonthBtn" type="button">Next</button>
+    <h2 style="margin: 0;">Attendance Sheet</h2>
+    <div class="header-actions">
+      <button id="calendarBtn" type="button" onclick="window.location.href='/calendar'">Calendar</button>
+      <button id="logoutBtn" class="logout-btn" type="button">Log Out</button>
     </div>
-    <h2 id="monthTitle"></h2>
-    <button id="logoutBtn" class="logout-btn" type="button">Log Out</button>
   </div>
 
-  <div class="legend">
-    <span><i class="swatch regular"></i>Regular</span>
-    <span><i class="swatch holiday"></i>Holiday</span>
-    <span><i class="swatch event"></i>Event</span>
+  <div id="deniedBox" class="denied" style="display: none;">
+    Access denied. Only teachers can view or update attendance.
   </div>
 
-  <div class="grid" id="calendarGrid"></div>
-
-  <div class="panel">
-    <strong>Selected Day:</strong> <span id="selectedDateLabel">Click a day</span>
-    <p id="selectedInfoText" style="margin: 0.4rem 0 0;"></p>
-  </div>
-
-  <div class="panel" id="adminPanel" style="display: none;">
-    <strong>Admin: Set Day Status</strong>
-    <div class="controls">
-      <select id="dayTypeSelect">
-        <option value="regular">Regular</option>
-        <option value="holiday">Holiday</option>
-        <option value="event">Event</option>
-      </select>
-      <input type="text" id="dayDescInput" placeholder="Description..." />
-      <button class="save-btn" id="saveDayBtn" type="button">Save</button>
-    </div>
-    <p id="adminStatusMsg" style="margin: 0.5rem 0 0; font-size: 0.9rem;"></p>
+  <div id="sheetPanel" class="panel" style="display: none;">
+    <table id="attendanceTable"></table>
+    <div id="statusMsg" class="status"></div>
   </div>
 
   <script>
@@ -85,153 +63,181 @@
       }
     }
 
-    const isAdmin = parseJwtRole(token) === "admin";
-    if (isAdmin) {
-      document.getElementById("adminPanel").style.display = "block";
+    function getTodayDDMMYYYYInUTCPlus6() {
+      const shifted = new Date(Date.now() + 6 * 3600 * 1000);
+      const dd = String(shifted.getUTCDate()).padStart(2, "0");
+      const mm = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+      const yyyy = shifted.getUTCFullYear();
+      return `${dd}-${mm}-${yyyy}`;
     }
 
-    const now = new Date();
-    let currentYear = now.getFullYear();
-    let currentMonth = now.getMonth() + 1;
-    let monthEntries = {};
-    let selectedDateStr = null;
-
-    const monthTitleEl = document.getElementById("monthTitle");
-    const gridEl = document.getElementById("calendarGrid");
-    const selectedDateLabelEl = document.getElementById("selectedDateLabel");
-    const selectedInfoTextEl = document.getElementById("selectedInfoText");
-    const dayTypeSelectEl = document.getElementById("dayTypeSelect");
-    const dayDescInputEl = document.getElementById("dayDescInput");
-    const adminStatusMsgEl = document.getElementById("adminStatusMsg");
-
-    function formatDateStr(y, m, d) {
-      return `${String(d).padStart(2, "0")}-${String(m).padStart(2, "0")}-${y}`;
+    function formatDDMM(ddmmyyyy) {
+      const parts = ddmmyyyy.split("-");
+      return parts.length >= 2 ? `${parts[0]}-${parts[1]}` : ddmmyyyy;
     }
 
-    async function loadMonth(year, month) {
+    function formatSummaryText(count, total) {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      return `${count} / ${total} (${pct}%)`;
+    }
+
+    const isTeacher = parseJwtRole(token) === "teacher";
+    const deniedBoxEl = document.getElementById("deniedBox");
+    const sheetPanelEl = document.getElementById("sheetPanel");
+    const tableEl = document.getElementById("attendanceTable");
+    const statusMsgEl = document.getElementById("statusMsg");
+
+    if (!token || !isTeacher) {
+      deniedBoxEl.style.display = "block";
+    } else {
+      sheetPanelEl.style.display = "block";
+      loadAttendanceSheet();
+    }
+
+    async function loadAttendanceSheet() {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const res = await fetch(`/api/calendar?year=${year}&month=${month}`, { headers });
-      monthEntries = {};
-      if (res.ok) {
-        const data = await res.json();
-        for (const item of (data.days || [])) {
-          monthEntries[item.date] = item;
+      const res = await fetch("/api/attendance", { headers });
+      if (!res.ok) {
+        statusMsgEl.textContent = await res.text();
+        return;
+      }
+
+      const data = await res.json();
+      renderSheet(data.dates || [], data.students || [], data.records || []);
+    }
+
+    function renderSheet(dates, students, records) {
+      const todayStr = getTodayDDMMYYYYInUTCPlus6();
+      const visibleDates = dates.slice(-6);
+      const presentSet = new Set();
+
+      for (const rec of records) {
+        if (rec.present) {
+          presentSet.add(`${rec.reg_no}|${rec.date}`);
         }
       }
-      renderCalendar();
-    }
 
-    function renderCalendar() {
-      const firstDay = new Date(currentYear, currentMonth - 1, 1);
-      const lastDay = new Date(currentYear, currentMonth, 0);
-      const daysInMonth = lastDay.getDate();
-      const startWeekday = firstDay.getDay();
+      tableEl.innerHTML = "";
 
-      monthTitleEl.textContent = firstDay.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-      gridEl.innerHTML = "";
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
 
-      for (const wd of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
-        const cell = document.createElement("div");
-        cell.className = "weekday";
-        cell.textContent = wd;
-        gridEl.appendChild(cell);
-      }
+      const regTh = document.createElement("th");
+      regTh.className = "reg-col";
+      regTh.textContent = "Reg No";
+      headRow.appendChild(regTh);
 
-      for (let i = 0; i < startWeekday; i++) {
-        const blank = document.createElement("div");
-        blank.className = "day-box empty";
-        gridEl.appendChild(blank);
-      }
+      const nameTh = document.createElement("th");
+      nameTh.className = "name-col";
+      nameTh.textContent = "Student";
+      headRow.appendChild(nameTh);
 
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = formatDateStr(currentYear, currentMonth, day);
-        const entry = monthEntries[dateStr] || { date: dateStr, type: "regular", day_description: "" };
-
-        const box = document.createElement("button");
-        box.type = "button";
-        box.className = `day-box ${entry.type}`;
-        if (dateStr === selectedDateStr) box.classList.add("selected");
-
-        const numSpan = document.createElement("span");
-        numSpan.textContent = day;
-
-        const previewSpan = document.createElement("span");
-        previewSpan.className = "day-preview";
-        previewSpan.textContent = entry.day_description || "";
-
-        box.appendChild(numSpan);
-        box.appendChild(previewSpan);
-        box.addEventListener("click", () => selectDay(dateStr));
-        gridEl.appendChild(box);
-      }
-    }
-
-    function selectDay(dateStr) {
-      selectedDateStr = dateStr;
-      const entry = monthEntries[dateStr] || { date: dateStr, type: "regular", day_description: "" };
-
-      selectedDateLabelEl.textContent = dateStr;
-      if (entry.type === "holiday") {
-        selectedInfoTextEl.textContent = `Holiday: ${entry.day_description || "Holiday"}`;
-      } else if (entry.type === "event") {
-        selectedInfoTextEl.textContent = `Event: ${entry.day_description || "Event"}`;
-      } else {
-        selectedInfoTextEl.textContent = "Regular classes.";
-      }
-
-      if (isAdmin) {
-        dayTypeSelectEl.value = entry.type;
-        dayDescInputEl.value = entry.day_description || "";
-        adminStatusMsgEl.textContent = "";
-      }
-
-      renderCalendar();
-    }
-
-    document.getElementById("prevMonthBtn").addEventListener("click", () => {
-      currentMonth -= 1;
-      if (currentMonth < 1) { currentMonth = 12; currentYear -= 1; }
-      loadMonth(currentYear, currentMonth);
-    });
-
-    document.getElementById("nextMonthBtn").addEventListener("click", () => {
-      currentMonth += 1;
-      if (currentMonth > 12) { currentMonth = 1; currentYear += 1; }
-      loadMonth(currentYear, currentMonth);
-    });
-
-    if (isAdmin) {
-      document.getElementById("saveDayBtn").addEventListener("click", async () => {
-        if (!selectedDateStr) {
-          adminStatusMsgEl.textContent = "Click a day first.";
-          return;
+      for (const d of visibleDates) {
+        const isToday = d === todayStr;
+        const shortDate = formatDDMM(d);
+        const th = document.createElement("th");
+        if (isToday) {
+          th.classList.add("today-col");
+          th.innerHTML = `${shortDate}<br/><span style="font-size:0.75rem;font-weight:normal;">(Today)</span>`;
+        } else {
+          th.textContent = shortDate;
         }
-        const res = await fetch("/api/calendar/day", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            date: selectedDateStr,
-            type: dayTypeSelectEl.value,
-            day_description: dayDescInputEl.value
-          })
-        });
+        headRow.appendChild(th);
+      }
 
-        if (!res.ok) {
-          adminStatusMsgEl.textContent = await res.text();
-          return;
+      const totalTh = document.createElement("th");
+      totalTh.className = "summary-col";
+      totalTh.textContent = "Present / Total";
+      headRow.appendChild(totalTh);
+
+      thead.appendChild(headRow);
+      tableEl.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      const totalDays = visibleDates.length;
+
+      for (const student of students) {
+        const tr = document.createElement("tr");
+
+        const regTd = document.createElement("td");
+        regTd.className = "reg-col";
+        regTd.textContent = student.reg_no;
+        tr.appendChild(regTd);
+
+        const nameTd = document.createElement("td");
+        nameTd.className = "name-col";
+        nameTd.textContent = student.full_name;
+        tr.appendChild(nameTd);
+
+        let presentCount = 0;
+        const rowCheckboxes = [];
+
+        for (const d of visibleDates) {
+          const isToday = d === todayStr;
+          const isChecked = presentSet.has(`${student.reg_no}|${d}`);
+          if (isChecked) presentCount += 1;
+
+          const td = document.createElement("td");
+          td.className = isToday ? "today-col" : "past-col";
+
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = isChecked;
+          cb.disabled = !isToday;
+
+          if (isToday) {
+            cb.addEventListener("change", async () => {
+              cb.disabled = true;
+              statusMsgEl.textContent = "Saving...";
+
+              const res = await fetch("/api/attendance", {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  reg_no: student.reg_no,
+                  date: d,
+                  present: cb.checked
+                })
+              });
+
+              cb.disabled = false;
+
+              if (!res.ok) {
+                cb.checked = !cb.checked;
+                statusMsgEl.textContent = await res.text();
+                return;
+              }
+
+              const saved = await res.json();
+              updateSummary();
+              statusMsgEl.textContent = `Saved ${student.full_name} (${saved.date}): ${saved.present ? "Present" : "Absent"}`;
+            });
+          }
+
+          rowCheckboxes.push(cb);
+          td.appendChild(cb);
+          tr.appendChild(td);
         }
 
-        const data = await res.json();
-        monthEntries[data.date] = data;
-        adminStatusMsgEl.textContent = "Saved.";
-        selectDay(data.date);
-      });
-    }
+        const summaryTd = document.createElement("td");
+        summaryTd.className = "summary-col";
 
-    loadMonth(currentYear, currentMonth);
+        const updateSummary = () => {
+          const count = rowCheckboxes.reduce((acc, box) => acc + (box.checked ? 1 : 0), 0);
+          summaryTd.textContent = formatSummaryText(count, totalDays);
+        };
+
+        summaryTd.textContent = formatSummaryText(presentCount, totalDays);
+        tr.appendChild(summaryTd);
+
+        tbody.appendChild(tr);
+      }
+
+      tableEl.appendChild(tbody);
+    }
   </script>
 </body>
 </html>

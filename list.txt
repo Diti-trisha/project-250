@@ -5,31 +5,38 @@ to do:
     -> canteen browser
     -> canteen subscription
     -> classroom availablity
-    -> attendence
     -> online platform
     -> My Profile
     -> Admin Dashboard
+    -> Teachers room
     -> Notifications
 
 doing:
-    -> login/register
-        -> jwt
-        -> database
 
 done:
     -> database connection
     -> academic calender
+    -> login/register
+        -> jwt
+        -> database
+    -> attendence
 
 
 for calender:
-my-school-project/
-├── main.go
-├── schema.sql
-├── user.go
-├── calendar.go (or calendar handler/repo)
-└── static/
-    └── calendar.html
+    -> main.go
+        -> schema.sql
+            -> user.go
+                -> calendar.go
+                    -> calendar.html
 
 
 to clere table in db: 
     DROP TABLE IF EXISTS users, calendar_days CASCADE;
+
+
+
+1001 1002 admin
+2001 2002 2003 teacher
+3001 3002 3003 etc student
+
+pass: 1234
